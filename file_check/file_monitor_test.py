@@ -31,7 +31,7 @@ class FileMonitorTest:
             if os.path.exists(self.monitor_path):
                 # do something
                 try:
-                    shutil.copy('../test/%d.jpg' % random.randint(0, 35),
+                    shutil.copy('../test/%d.jpg' % random.randint(0, 36),
                                 self.monitor_path + '/' + '%dglue.jpg' % self.index)
                 except:
                     pass

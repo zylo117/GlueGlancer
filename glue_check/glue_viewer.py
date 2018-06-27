@@ -34,13 +34,23 @@ class ImageProc:
             image_path = self.image_queue.get()
 
             if os.path.exists(image_path):
-                self.image = self.proc(image_path)
+                self.image, result = self.proc(image_path)
+                if self.image is not None:
+                    if result == 0:
+                        print('ok')
+                    elif result == 1:
+                        print('black mask area contaminated')
+                    elif result == 2:
+                        print('sensor area contaminated')
+                    else:
+                        print('unknown')
 
     @staticmethod
     def proc(image_path):
-        image = cv2.imread(image_path, 0)
-        if image is not None:
-            t1 = datetime.datetime.now()
+        ori_image = cv2.imread(image_path, 0)
+        if ori_image is not None:
+            image = ori_image.copy()
+            # t1 = datetime.datetime.now()
             h, w = image.shape[:2]
             image = image[int(h / 5):int(4 * h / 5), int(w / 5):int(4 * w / 5)]
 
@@ -48,7 +58,7 @@ class ImageProc:
             image = cv2.medianBlur(image, 3)
             center_color = np.mean(image[int(h / 2 - 10):int(h / 2 + 10), int(w / 2 - 10):int(w / 2 + 10)]).astype(int)
 
-            print(center_color)
+            # print(center_color)
             val, roi = cv2.threshold(image, int(center_color * 0.75), 255, cv2.THRESH_BINARY)
             roi = cv2.erode(roi, None, iterations=4)
 
@@ -89,38 +99,51 @@ class ImageProc:
                 # h -= 2
 
                 if len(cnt) > 0:
-                    roi = roi[y:y + h, x:x + w]
                     image = image[y:y + h, x:x + w]
-                    roi = cv2.bitwise_and(roi, image)
+                    roi = image.copy()
 
             # roi[roi == 0] = 255
             for i in range(3):
                 roi = cv2.medianBlur(roi, 3)
-            # roi_x = cv2.Sobel(roi, cv2.CV_32F, 2, 0)
-            # roi_y = cv2.Sobel(roi, cv2.CV_32F, 0, 2)
-            # roi = cv2.bitwise_or(roi_x, roi_y)
-            # for i in range(3):
-            #     roi = cv2.medianBlur(roi, 3)
 
-            # roi = cv2.dilate(roi, None, iterations=1)
-            # roi = cv2.erode(roi, None, iterations=1)
-            roi = cv2.normalize(roi, roi, 0, 255, cv2.NORM_MINMAX, cv2.CV_8UC1)
-            roi_max = np.max(roi)
-            roi_bright_val = [roi_max * 0.95, roi_max]
+            _, roi = cv2.threshold(roi, 0, 255, cv2.THRESH_OTSU + cv2.THRESH_BINARY)
+            roi_dark = cv2.bitwise_not(roi)
+            coords = np.column_stack(np.where(roi_dark > 0))
+            y, x, h, w = cv2.boundingRect(coords)  # noticing input is numpy row col instead x, y
 
-            # extract bright areo
-            roi_bright = roi.copy()
-            roi_bright[roi_bright < roi_bright_val[0]] = 0
-            roi_bright_mean = np.mean(roi_bright)
-            print(roi_bright_mean)
+            roi_dark = roi_dark[y:y + h, x:x + w]
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+            roi_dark = cv2.morphologyEx(roi_dark, cv2.MORPH_CLOSE, kernel, iterations=4)
+            roi_dark = cv2.bitwise_not(roi_dark)
+            bright_area_defects_count = np.count_nonzero(roi_dark)
 
-            # extract dark area
-            roi[roi == 0] = 128
+            if bright_area_defects_count > 0:
+                return ori_image, 1
+            else:
+                roi_dark_com = image[y:y + h, x:x + w]
+                # roi_dark_x = cv2.Sobel(roi_dark_com, cv2.CV_32F, 2, 0, borderType=cv2.BORDER_CONSTANT)
+                roi_dark_y = cv2.Sobel(roi_dark_com, cv2.CV_32F, 0, 1, borderType=cv2.BORDER_CONSTANT)
+                # roi_dark = cv2.bitwise_or(roi_dark_x, roi_dark_y)
+                roi_dark = cv2.convertScaleAbs(roi_dark_y)
+                h_, w_ = roi_dark.shape[:2]
+                roi_dark[0:5] = 0
+                roi_dark[h - 5:h] = 0
+                roi_dark = cv2.medianBlur(roi_dark, 3)
 
-            t2 = datetime.datetime.now()
-            print('time: {}'.format(t2 - t1))
+                dark_area_defects_count = np.count_nonzero(roi_dark)
 
-            return image
+                if bright_area_defects_count > 0:
+                    return ori_image, 2
+
+            # roi_dark = np.hstack([roi_dark_com, roi_dark])
+
+            # t2 = datetime.datetime.now()
+            # print('time: {}'.format(t2 - t1))
+
+            return ori_image, 0
+
+        else:
+            return None, -1
 
     @staticmethod
     def fix_rotation(*images, base_roi, inter=cv2.INTER_LANCZOS4, borderMode=cv2.BORDER_CONSTANT, borderValue=0):
