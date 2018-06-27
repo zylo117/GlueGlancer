@@ -23,6 +23,8 @@ addr_by_sut = np.array(addr_by_sut)
 for addr in addr_by_sut:
     fm = FileMonitor(addr[2], 1, 100, 'glue.jpg')
     fm.start()
+    print('monitoring {} SUT{}'.format(addr[0], addr[1]))
 
     IP = ImageProc(fm.image_queue, machine=addr[0], station=addr[1], output=True)
     IP.start()
+    print('processing {} SUT{}'.format(addr[0], addr[1]))
