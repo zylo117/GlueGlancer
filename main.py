@@ -1,4 +1,5 @@
 import datetime
+import time
 
 import numpy as np
 
@@ -28,3 +29,6 @@ for addr in addr_by_sut:
     IP = ImageProc(fm.image_queue, machine=addr[0], station=addr[1], output=True)
     IP.start()
     print('processing {} SUT{}'.format(addr[0], addr[1]))
+
+while True:
+    time.sleep(1)
