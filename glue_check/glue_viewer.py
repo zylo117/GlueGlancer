@@ -1,20 +1,23 @@
 import datetime
 import os
 import time
-import numpy as np
 from threading import Thread
 
 import cv2
+import numpy as np
 
 from file_check.file_monitor import FileMonitor
 from file_check.file_monitor_test import FileMonitorTest
 
 
 class ImageProc:
-    def __init__(self, image_queue, time_pause=0.01):
+    def __init__(self, image_queue, time_pause=0.01, machine=None, station=0, output=False):
         self.index = 0
         self.image_queue = image_queue
         self.image = None
+
+        self.machine = machine
+        self.station = station
 
         # initialize the variable used to indicate if the thread should
         # be stopped
@@ -44,6 +47,22 @@ class ImageProc:
                         print('sensor area contaminated')
                     else:
                         print('unknown')
+
+                    if result > 0:
+                        status = 'NG'
+                    else:
+                        status = 'OK'
+
+                    # write to output
+                    path = './output/{}.csv'.format(datetime.date.today())
+                    if not os.path.exists(path):
+                        out = open(path, 'w')
+                        out.write('Mac,SUT,Date,Stat')
+                        out.close()
+                    else:
+                        out = open(path, 'a')
+                        out.write('{},{},{},{}'.format(self.machine, self.station, datetime.datetime.now(), status))
+                        out.close()
 
     @staticmethod
     def proc(image_path):

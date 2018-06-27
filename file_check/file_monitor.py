@@ -53,7 +53,7 @@ class FileMonitor:
                 for p in new_files:
                     new_files_path = self.monitor_path + '/' + p
                     self.image_queue.put(new_files_path)
-                    print(self.image_queue.qsize())
+                    # print(self.image_queue.qsize())
 
                 time.sleep(self.time_pause)
 
