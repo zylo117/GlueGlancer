@@ -22,4 +22,5 @@ hs_err_pid*
 *.jpg
 *.DS_Store
 *.xml
+*.db
 *.pyc
